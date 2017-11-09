@@ -29,6 +29,82 @@ const requestSyncEndpoint = 'https://homegraph.googleapis.com/v1/devices:request
 
 const appPort = process.env.PORT || config.devPortSmartHome;
 
+//////////////////////////
+// Define device property
+//////////////////////////
+const deviceProperty = {
+	devices: [
+	{
+		id: "1",
+		type: "action.devices.types.LIGHT",
+		traits: [
+		    "action.devices.traits.OnOff",
+		],
+		name: {
+		    name: "window"
+		},
+		willReportState: true
+	},
+	{
+		id: "2",
+		type: "action.devices.types.LIGHT",
+		traits: [
+		    "action.devices.traits.OnOff",
+		],
+		name: {
+		    name: "center"
+		},
+		willReportState: true
+	},
+	{
+		id: "3",
+		type: "action.devices.types.LIGHT",
+		traits: [
+		    "action.devices.traits.OnOff",
+		],
+		name: {
+		    name: "table"
+		},
+		willReportState: true
+	},
+	{
+		id: "4",
+		type: "action.devices.types.SWITCH",
+		traits: [
+		    "action.devices.traits.OnOff"
+		],
+		name: {
+		    name: "TV"
+		},
+		willReportState: true
+	}
+	]
+}
+
+//////////////////////////
+// Define device status
+//////////////////////////
+let deviceStatus = {
+    devices: {
+        "1": {
+            on: true,
+            online: true
+        },
+        "2": {
+            on: true,
+            online: true
+        },
+        "3": {
+            on: true,
+            online: true
+        },
+        "4": {
+            on: true,
+            online: true,
+        }
+    }
+}
+
 function registerAgent(app) {
   console.log('smart-home-app registerAgent');
 
@@ -112,31 +188,8 @@ function registerAgent(app) {
 
     let deviceProps = {
         requestId: data.requestId,
-        payload: {
-            devices: [{
-                id: "1",
-                type: "action.devices.types.SWITCH",
-                traits: [
-                    "action.devices.traits.OnOff"
-                ],
-                name: {
-                    name: "fan"
-                },
-                willReportState: true
-            }, {
-                id: "2",
-                type: "action.devices.types.LIGHT",
-                traits: [
-                    "action.devices.traits.OnOff",
-                    "action.devices.traits.ColorSpectrum"
-                ],
-                name: {
-                    name: "lights"
-                },
-                willReportState: true
-            }]
-        }
-    };    
+        payload: deviceProperty
+    };
 
     console.log('sync response', JSON.stringify(deviceProps));
     response.status(200).json(deviceProps);
@@ -145,27 +198,12 @@ function registerAgent(app) {
 
   function query(data, response) {
     console.log('query', JSON.stringify(data));
-    let deviceIds = getDeviceIds(data.devices);
 
     let deviceStates = {
         requestId: data.requestId,
-        payload: {
-            devices: {
-                "1": {
-                    on: devices.fan.on,
-                    online: true
-                },
-                "2": {
-                    on: devices.lights.on,
-                    online: true,
-                    color: {
-                        spectrumRGB: devices.lights.spectrumRGB
-                    }
-                }
-            }
-        }
+        payload: deviceStatus
     };
-    
+
     console.log('query response', JSON.stringify(deviceStates));
     response.status(200).json(deviceStates);
     return deviceStates;
