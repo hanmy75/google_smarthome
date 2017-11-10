@@ -6,10 +6,6 @@ const morgan = require('morgan');
 const session = require('express-session');
 
 // internal app deps
-const datastore = require('./datastore');
-const authProvider = require('./auth-provider');
-const config = require('./config-provider');
-
 const app = express();
 app.use(morgan('dev'));
 app.use(bodyParser.json());
@@ -17,7 +13,7 @@ app.use(bodyParser.urlencoded({extended: true}));
 app.set('trust proxy', 1); // trust first proxy
 app.use(session({
   genid: function (req) {
-    return authProvider.genRandomString()
+    return Math.floor(Math.random() * 10000000000000000000000000000000000000000).toString(36)
   },
   secret: 'xyzsecret',
   resave: false,
@@ -25,9 +21,8 @@ app.use(session({
   cookie: {secure: false}
 }));
 const deviceConnections = {};
-const requestSyncEndpoint = 'https://homegraph.googleapis.com/v1/devices:requestSync?key=';
-
-const appPort = process.env.PORT || config.devPortSmartHome;
+//const requestSyncEndpoint = 'https://homegraph.googleapis.com/v1/devices:requestSync?key=';
+const appPort = "4003";
 
 //////////////////////////
 // Define device property
@@ -113,9 +108,6 @@ function registerAgent(app) {
     let reqdata = request.body;
     console.log('post /smarthome', JSON.stringify(reqdata));
 
-    let authToken = authProvider.getAccessToken(request);
-    let uid = datastore.Auth.tokens[authToken].uid;
-
     if (!reqdata.inputs) {
       response.status(401).set({
         'Access-Control-Allow-Origin': '*',
@@ -137,8 +129,6 @@ function registerAgent(app) {
           console.log('post /smarthome SYNC');
 
           sync({
-            uid: uid,
-            auth: authToken,
             requestId: reqdata.requestId
           }, response);
           break;
@@ -146,8 +136,6 @@ function registerAgent(app) {
           console.log('post /smarthome QUERY');
 
           query({
-            uid: uid,
-            auth: authToken,
             requestId: reqdata.requestId,
             devices: input.payload.devices
           }, response);
@@ -157,8 +145,6 @@ function registerAgent(app) {
           console.log('post /smarthome EXECUTE');
 
           exec({
-            uid: uid,
-            auth: authToken,
             requestId: reqdata.requestId,
             commands: input.payload.commands
           }, response);
@@ -261,23 +247,12 @@ function registerAgent(app) {
   }
 
   registerAgent.exec = exec;
-
 }
 
 const server = app.listen(appPort, function () {
   const host = server.address().address;
   const port = server.address().port;
-  // Check that the API key was changed from the default
-  if (config.smartHomeProviderApiKey === '<API_KEY>') {
-    console.warn('You need to set the API key in config-provider.\n' +
-      'Visit the Google Cloud Console to generate an API key for your project.\n' +
-      'https://console.cloud.google.com\n' +
-      'Exiting...');
-    process.exit();
-  }
   console.log('Smart Home Cloud and App listening at %s:%s', host, port);
 
   registerAgent(app);
-  authProvider.registerAuth(app);
-
 });
