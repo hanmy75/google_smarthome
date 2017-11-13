@@ -1,8 +1,42 @@
 from BaseHTTPServer import BaseHTTPRequestHandler
 import urlparse, json
-#from pi_switch import RCSwitchSender
-#from lirc import Lirc
+from pi_switch import RCSwitchSender
+from lirc import Lirc
 import logging
+
+
+
+
+# Lirc Init
+lirc_obj = Lirc()
+
+# RF Switch Init
+rf_sender = RCSwitchSender()
+rf_sender.enableTransmit(0)  # GPIO_GEN_0
+
+# Setup logging level
+logging.basicConfig(level=logging.DEBUG)
+
+
+# RCU Operation
+def RCU_Operation(key_code):
+    logging.debug("RCU : code %s", key_code)
+    lirc_obj.send_once(TV_MANUFACTORE, key_code)
+
+# RF Operation
+def RF_Operation(key_code):
+    logging.debug("RF : code %s", key_code)
+    rf_sender.sendDecimal(key_code, 24)
+
+# Power On Off Control
+def do_PowerOnOff(device, onoff):
+	operation = device['operation']
+	if onoff == True:
+		operation['function'](operation['on_key'])
+	else:
+		operation['function'](operation['off_key'])
+	# Update Status
+	device['status'] = onoff
 
 
 # For TV
@@ -17,27 +51,6 @@ WINDOW_LAMP_OFF_COMMAND        = 0x00EA083E
 WINDOW_LAMP_ON_COMMAND         = 0x00EA083F
 GROUP_ON_COMMAND               = 0xABCDEF00
 GROUP_OFF_COMMAND              = 0xABCDEF11
-
-
-# RCU Operation
-def RCU_Operation(key_code):
-    logging.debug("RCU : code %s", key_code)
-    #lirc_obj.send_once(TV_MANUFACTORE, key_code)
-
-# RF Operation
-def RF_Operation(key_code):
-    logging.debug("RF : code %s", key_code)
-    #rf_sender.sendDecimal(key_code, 24)
-
-# Power On Off Control
-def do_PowerOnOff(device, onoff):
-	operation = device['operation']
-	if onoff == 'true':
-		operation['function'](operation['on_key'])
-	else:
-		operation['function'](operation['off_key'])
-	# Update Status
-	device['status'] = onoff
 
 
 ############################
@@ -58,7 +71,7 @@ devicePropertys = [
 			'on_key' : 'KEY_POWER',
 			'off_key': 'KEY_POWER'
 		},
-		'status' : 'false'
+		'status' : False
 	},
 	{
 		'id': '2',
@@ -74,7 +87,7 @@ devicePropertys = [
 			'on_key': TABLE_LAMP_ON_COMMAND,
 			'off_key': TABLE_LAMP_OFF_COMMAND
 		},
-		'status': 'false'
+		'status': False
 	},
 	{
 		'id': '3',
@@ -90,7 +103,7 @@ devicePropertys = [
 			'on_key': LIVINGROOM_LAMP_ON_COMMAND,
 			'off_key': LIVINGROOM_LAMP_OFF_COMMAND
 		},
-		'status': 'false'
+		'status': False
 	},
 	{
 		'id': '4',
@@ -106,7 +119,7 @@ devicePropertys = [
 			'on_key': WINDOW_LAMP_ON_COMMAND,
 			'off_key': WINDOW_LAMP_OFF_COMMAND
 		},
-		'status': 'false'
+		'status': False
 	}
 ]
 
@@ -129,37 +142,30 @@ class GetHandler(BaseHTTPRequestHandler):
 			self.end_headers()
 			return
 
-		# Check Input Data
-		found_flag = False
-		for one_data in data:
-			if one_data == 'inputs':
-				found_flag = True
-				break
-		if found_flag == False:
+		# Get Input Data
+		input_data = data.get('inputs')
+		if input_data == None:
 			self.send_response(401, "missing intent")
 			self.end_headers()
 			return
 
-		for one_input in data['inputs']:
-			don_flag = False
-			if one_input['intent'] == 'action.devices.SYNC':
-				response_result = self.do_sync(data['requestId'])
-				don_flag = True
-			elif one_input['intent'] == 'action.devices.QUERY':
-				response_result = self.do_query(data['requestId'], one_input['payload']['devices'])
-				don_flag = True
-			elif one_input['intent'] == 'action.devices.EXECUTE':
-				response_result = self.do_execute(data['requestId'], one_input['payload']['commands'])
-				don_flag = True
-			else:
-				self.send_response(401, "missing intent")
-				self.end_headers()
+		# Get Intent & Payload Data
+		intent_data = input_data[0]['intent']
 
-			if don_flag == True:
-				self.send_response(200)
-				self.end_headers()
-				self.wfile.write(json.dumps(response_result))
-				logging.info("POST response : %s", json.dumps(response_result))
+		# Check Intent Data
+		if intent_data == 'action.devices.SYNC':
+			response_result = self.do_sync(data['requestId'])
+		elif intent_data == 'action.devices.QUERY':
+			payload_data = input_data[0]['payload']
+			response_result = self.do_query(data['requestId'], payload_data['devices'])
+		elif intent_data == 'action.devices.EXECUTE':
+			payload_data = input_data[0]['payload']
+			response_result = self.do_execute(data['requestId'], payload_data['commands'])
+
+		self.send_response(200)
+		self.end_headers()
+		self.wfile.write(json.dumps(response_result))
+		logging.info("POST response : %s", json.dumps(response_result))
 		return
 
 	# SYNC
@@ -229,17 +235,6 @@ class GetHandler(BaseHTTPRequestHandler):
 		return responseBody
 
 
-
-
-# Lirc Init
-#lirc_obj = Lirc()
-
-# RF Switch Init
-#rf_sender = RCSwitchSender()
-#rf_sender.enableTransmit(0)  # GPIO_GEN_0
-
-# Setup logging level
-logging.basicConfig(level=logging.DEBUG)
 
 if __name__ == '__main__':
 	from BaseHTTPServer import HTTPServer

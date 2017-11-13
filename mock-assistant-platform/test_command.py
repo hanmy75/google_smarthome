@@ -2,7 +2,7 @@ import requests
 # POST with JSON
 import json
 
-URL = "http://339a6f04.ngrok.io/smarthome"
+URL = "http://localhost:4003/smarthome"
 headers = {'authorization': 'Bearer psokmCxKjfhk7qHLeYd1'}
 
 # Example for EXECUTE
@@ -19,7 +19,7 @@ query_data = {'requestId': 'ff36a3cc-ec34-11e6-b1a0-64510650abcf', 'inputs': [{'
 
 requests.post(URL, headers=headers, json=sync_data)
 
-requests.post(URL, headers=headers, json=exec_data)
+#requests.post(URL, headers=headers, json=exec_data)
 
-requests.post(URL, headers=headers, json=query_data)
+#requests.post(URL, headers=headers, json=query_data)
 
