@@ -19,59 +19,6 @@ GROUP_ON_COMMAND               = 0xABCDEF00
 GROUP_OFF_COMMAND              = 0xABCDEF11
 
 
-############################
-## Define device property
-############################
-deviceProperty = {
-	'devices': [
-	{
-		'id': '1',
-		'type': 'action.devices.types.LIGHT',
-		'traits': [
-		    'action.devices.traits.OnOff',
-		],
-		'name': {
-		    'name': 'Window'
-		},
-		'willReportState': 'true'
-	},
-	{
-		'id': '2',
-		'type': 'action.devices.types.LIGHT',
-		'traits': [
-		    'action.devices.traits.OnOff',
-		],
-		'name': {
-		    'name': 'Center'
-		},
-		'willReportState': 'true'
-	},
-	{
-		'id': '3',
-		'type': 'action.devices.types.LIGHT',
-		'traits': [
-		    'action.devices.traits.OnOff',
-		],
-		'name': {
-		    'name': 'Table'
-		},
-		'willReportState': 'true'
-	},
-	{
-		'id': '4',
-		'type': 'action.devices.types.SWITCH',
-		'traits': [
-		    'action.devices.traits.OnOff',
-		],
-		'name': {
-		    'name': 'TV'
-		},
-		'willReportState': 'true'
-	}
-	]
-}
-
-
 # RCU Operation
 def RCU_Operation(key_code):
     logging.debug("RCU : code %s", key_code)
@@ -82,38 +29,86 @@ def RF_Operation(key_code):
     logging.debug("RF : code %s", key_code)
     #rf_sender.sendDecimal(key_code, 24)
 
-
-# [0] : Device ID
-# [1] : Device Name
-# [2] : Function
-# [3] : On key
-# [4] : Off key
-# [5] : Status
-DEVICE_LIST = [
-    ['1', "TV", RCU_Operation, 'KEY_POWER', 'KEY_POWER', 'false'],
-    ['2', "table", RF_Operation, TABLE_LAMP_ON_COMMAND, TABLE_LAMP_OFF_COMMAND, 'false'],
-    ['3', "center", RF_Operation, LIVINGROOM_LAMP_ON_COMMAND, LIVINGROOM_LAMP_OFF_COMMAND, 'false'],
-    ['4', "window", RF_Operation, WINDOW_LAMP_ON_COMMAND, WINDOW_LAMP_OFF_COMMAND, 'false']
-]
-
 # Power On Off Control
-def do_PowerOnOff(id, onoff):
-    for one_device in DEVICE_LIST:
-		if one_device[0] == id:
-			if onoff == 'true':
-				one_device[2](one_device[3])
-			else:
-				one_device[2](one_device[4])
-			# Update Status
-			one_device[5] = onoff
+def do_PowerOnOff(device, onoff):
+	operation = device['operation']
+	if onoff == 'true':
+		operation['function'](operation['on_key'])
+	else:
+		operation['function'](operation['off_key'])
+	# Update Status
+	device['status'] = onoff
 
-# Get Device Status
-def get_PowerStatus(id):
-	onoff_status = 'false'
-	for one_device in DEVICE_LIST:
-		if one_device[0] == id:
-			onoff_status = one_device[5]
-	return onoff_status
+
+############################
+## Define device property
+############################
+devicePropertys = [
+	{
+		'id': '1',
+		'type': 'action.devices.types.SWITCH',
+		'traits': [
+		    'action.devices.traits.OnOff',
+		],
+		'name': {
+		    'name': 'TV'
+		},
+		'operation': {
+			'function' : RCU_Operation,
+			'on_key' : 'KEY_POWER',
+			'off_key': 'KEY_POWER'
+		},
+		'status' : 'false'
+	},
+	{
+		'id': '2',
+		'type': 'action.devices.types.LIGHT',
+		'traits': [
+		    'action.devices.traits.OnOff',
+		],
+		'name': {
+		    'name': 'Table'
+		},
+		'operation': {
+			'function': RF_Operation,
+			'on_key': TABLE_LAMP_ON_COMMAND,
+			'off_key': TABLE_LAMP_OFF_COMMAND
+		},
+		'status': 'false'
+	},
+	{
+		'id': '3',
+		'type': 'action.devices.types.LIGHT',
+		'traits': [
+			'action.devices.traits.OnOff',
+		],
+		'name': {
+			'name': 'Center'
+		},
+		'operation': {
+			'function': RF_Operation,
+			'on_key': LIVINGROOM_LAMP_ON_COMMAND,
+			'off_key': LIVINGROOM_LAMP_OFF_COMMAND
+		},
+		'status': 'false'
+	},
+	{
+		'id': '4',
+		'type': 'action.devices.types.LIGHT',
+		'traits': [
+			'action.devices.traits.OnOff',
+		],
+		'name': {
+			'name': 'Window'
+		},
+		'operation': {
+			'function': RF_Operation,
+			'on_key': WINDOW_LAMP_ON_COMMAND,
+			'off_key': WINDOW_LAMP_OFF_COMMAND
+		},
+		'status': 'false'
+	}
+]
 
 
 
@@ -169,15 +164,23 @@ class GetHandler(BaseHTTPRequestHandler):
 
 	# SYNC
 	def do_sync(self, requestId):
-		deviceProps = {
+		deviceProperty = []
+		respProps = {
 			'requestId': requestId,
-			'payload': deviceProperty
+			'payload': {
+				'devices': deviceProperty
+			}
 		}
 
-		return deviceProps
+		# Update Device Property Information
+		for one_property in devicePropertys:
+			logging.debug("SYNC : id %s, name %s", one_property['id'], one_property['name'])
+			deviceProperty.append({'id': one_property['id'],  'type': one_property['type'], 'traits': one_property['traits'], 'name': one_property['name'], 'willReportState': 'true'})
+
+		return respProps
 
 	# QUERY
-	def do_query(self, requestId, devices):
+	def do_query(self, requestId, inDevicesInfo):
 		respStatus = {}
 		deviceStates = {
 			'requestId': requestId,
@@ -186,17 +189,20 @@ class GetHandler(BaseHTTPRequestHandler):
 			}
 		}
 
-		logging.info("QUERY : %s", devices)
+		logging.info("QUERY : %s", inDevicesInfo)
 
-		for one_device in devices:
-			logging.debug("QUERY : device %s, status %s", one_device['id'], get_PowerStatus(one_device['id']))
-			respStatus.update({one_device['id']: {'on': get_PowerStatus(one_device['id']), 'online': 'true'}})
+		for one_device_info in inDevicesInfo:
+			# Find matched device ID
+			for one_device in devicePropertys:
+				if one_device['id'] == one_device_info['id']:
+					logging.debug("QUERY : device %s, status %s", one_device['id'], one_device['status'])
+					respStatus.update({one_device['id']: {'on': one_device['status'], 'online': 'true'}})
 
 		return deviceStates
 
 	# EXECUTE
 	def do_execute(self, requestId, commands):
-		respCommands = {}
+		respCommands = []
 		responseBody = {
 			'requestId': requestId,
 			'payload': {
@@ -207,16 +213,18 @@ class GetHandler(BaseHTTPRequestHandler):
 		logging.info("EXECUTE : %s", commands)
 
 		for one_command in commands:
-			for one_device in one_command['devices']:
+			for one_device_info in one_command['devices']:
 				for one_execution in one_command['execution']:
-					logging.debug("QUERY : device %s, execution %s", one_device['id'], one_execution['command'])
+					logging.debug("QUERY : device %s, execution %s", one_device_info['id'], one_execution['command'])
 
-					# Power On Off Command
-					if one_execution['command'] == 'action.devices.commands.OnOff':
-						do_PowerOnOff(one_device['id'], one_execution['params']['on'])
+					# Find matched device ID
+					for one_device in devicePropertys:
+						if one_device['id'] == one_device_info['id']:
+							# Power On Off Command
+							if one_execution['command'] == 'action.devices.commands.OnOff':
+								do_PowerOnOff(one_device, one_execution['params']['on'])
 
-
-					respCommands.update({'ids': [one_device['id']], 'status': "SUCCESS"})
+						respCommands.append({'ids': [one_device['id']], 'status': "SUCCESS"})
 
 		return responseBody
 
