@@ -1,4 +1,4 @@
-import urlparse, json
+import urlparse, json, requests
 import threading
 import fauxmo
 import time
@@ -6,6 +6,13 @@ import logging
 from BaseHTTPServer	import BaseHTTPRequestHandler
 from pi_switch import RCSwitchSender
 from lirc import Lirc
+
+# For request sync to Google Home : 10 min
+REQUEST_SYNC_DURATION = (10*60)
+AGENT_USER_ID = 'han.my75@gmail.com'
+API_KEY = 'AIzaSyBHnS2UwDuHfQd6HX6ce5WoDFB4ZT0Hhe8'
+requestSyncHeaders = {'Content-Type': 'application/json'}
+requestSyncEndpoint = 'https://homegraph.googleapis.com/v1/devices:requestSync?key='
 
 
 # Lirc Init
@@ -135,7 +142,7 @@ class GetHandler(BaseHTTPRequestHandler):
 		data = json.loads(post_body)
 		response_result	= {}
 
-		logging.info("POST path	: %s", self.path)
+		logging.info("POST path : %s", self.path)
 		logging.info("POST data	: %s", data)
 
 		# Check	URL
@@ -168,6 +175,21 @@ class GetHandler(BaseHTTPRequestHandler):
 		self.end_headers()
 		self.wfile.write(json.dumps(response_result))
 		logging.info("POST response	: %s", json.dumps(response_result))
+
+		# Trigger timer for REQUEST_SYNC
+		if intent_data == 'action.devices.SYNC':
+			threading.Timer(REQUEST_SYNC_DURATION, self.do_requestsync).start()
+
+		return
+
+	# REQUEST_SYNC
+	def do_requestsync(self):
+		request_sync_header = {'Content-Type': 'application/json'}
+		request_sync_body = {'agentUserId': AGENT_USER_ID}
+
+		logging.debug("REQUEST_SYNC : %s", json.dumps(request_sync_body))
+		resp = requests.post(requestSyncEndpoint + API_KEY, headers=request_sync_header, json=request_sync_body)
+		logging.debug("RESP : %s", resp.json())
 		return
 
 	# SYNC
@@ -176,6 +198,7 @@ class GetHandler(BaseHTTPRequestHandler):
 		respProps =	{
 			'requestId': requestId,
 			'payload': {
+				'agentUserId': AGENT_USER_ID,
 				'devices': deviceProperty
 			}
 		}
@@ -183,7 +206,7 @@ class GetHandler(BaseHTTPRequestHandler):
 		# Update Device	Property Information
 		for	one_property in	devicePropertys:
 			logging.debug("SYNC	: id %s, name %s", one_property['id'], one_property['name'])
-			deviceProperty.append({'id': one_property['id'],  'type': one_property['type'],	'traits': one_property['traits'], 'name': one_property['name'],	'willReportState': 'true'})
+			deviceProperty.append({'id': one_property['id'],  'type': one_property['type'],	'traits': one_property['traits'], 'name': one_property['name'],	'willReportState': True})
 
 		return respProps
 
@@ -237,6 +260,7 @@ class GetHandler(BaseHTTPRequestHandler):
 		return responseBody
 
 
+
 # Fauxmo Main Handler
 class fauxmo_device_handler(object):
 	"""Publishes the on/off	state requested,
@@ -264,7 +288,6 @@ class fauxmo_device_handler(object):
 	def	get(self, client_address, name):
 		on_off_status =	2
 		return on_off_status
-
 
 
 if __name__	== '__main__':
