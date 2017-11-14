@@ -7,8 +7,8 @@ from BaseHTTPServer	import BaseHTTPRequestHandler
 from pi_switch import RCSwitchSender
 from lirc import Lirc
 
-# For request sync to Google Home : 10 min
-REQUEST_SYNC_DURATION = (10*60)
+# For request sync to Google Home : 30 min
+REQUEST_SYNC_DURATION = (30*60)
 AGENT_USER_ID = 'han.my75@gmail.com'
 API_KEY = 'AIzaSyBHnS2UwDuHfQd6HX6ce5WoDFB4ZT0Hhe8'
 requestSyncHeaders = {'Content-Type': 'application/json'}
@@ -225,7 +225,7 @@ class GetHandler(BaseHTTPRequestHandler):
 		for	one_device_info	in inDevicesInfo:
 			# Find matched device ID
 			for	one_device in devicePropertys:
-				if one_device['id']	== one_device_info['id']:
+				if one_device['id']	== int(one_device_info['id']):
 					logging.debug("QUERY : device %s, status %s", one_device['id'],	one_device['status'])
 					respStatus.update({one_device['id']: {'on':	one_device['status'], 'online':	'true'}})
 
@@ -246,11 +246,11 @@ class GetHandler(BaseHTTPRequestHandler):
 		for	one_command	in commands:
 			for	one_device_info	in one_command['devices']:
 				for	one_execution in one_command['execution']:
-					logging.debug("QUERY : device %s, execution	%s", one_device_info['id'],	one_execution['command'])
+					logging.debug("EXECUTE : device %s, execution	%s", one_device_info['id'],	one_execution['command'])
 
 					# Find matched device ID
 					for	one_device in devicePropertys:
-						if one_device['id']	== one_device_info['id']:
+						if one_device['id']	== int(one_device_info['id']):
 							# Power	On Off Command
 							if one_execution['command']	== 'action.devices.commands.OnOff':
 								do_PowerOnOff(one_device, one_execution['params']['on'])
