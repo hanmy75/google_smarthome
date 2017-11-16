@@ -7,10 +7,31 @@ from BaseHTTPServer import BaseHTTPRequestHandler
 from pi_switch import RCSwitchSender
 from lirc import Lirc
 
-# For request sync to Google Home : 30 min
-REQUEST_SYNC_DURATION = (30*60)
-AGENT_USER_ID = 'han.my75@gmail.com'
+
+############################
+#   Key Table
+############################
+# For TV
+TV_MANUFACTORE  = 'Samsung'
+
+# For Light
+TABLE_LAMP_OFF_COMMAND         = 0x00EC083B
+TABLE_LAMP_ON_COMMAND          = 0x00EC083C
+LIVINGROOM_LAMP_OFF_COMMAND    = 0x00EB083D
+LIVINGROOM_LAMP_ON_COMMAND     = 0x00EB083C
+WINDOW_LAMP_OFF_COMMAND        = 0x00EA083E
+WINDOW_LAMP_ON_COMMAND         = 0x00EA083F
+GROUP_ON_COMMAND               = 0xABCDEF00
+GROUP_OFF_COMMAND              = 0xABCDEF11
+
+
+############################
+# Auth Key Info
+############################
+AGENT_USER_ID = 'home-auto-b4b9f'
 API_KEY = 'AIzaSyBHnS2UwDuHfQd6HX6ce5WoDFB4ZT0Hhe8'
+AUTHORIZATION_CODE = '0EFBxAWH9iBYySHFQm5xpji8LW'
+ACCESS_TOKEN = 'kmjWldncnpr2drPCIe8n5TWvNEqqz8'
 requestSyncHeaders = {'Content-Type': 'application/json'}
 requestSyncEndpoint = 'https://homegraph.googleapis.com/v1/devices:requestSync?key='
 
@@ -46,21 +67,6 @@ def do_PowerOnOff(device, onoff):
     # Update Status
     device['status'] = onoff
     time.sleep(0.3)
-
-
-# For TV
-TV_MANUFACTORE  = 'Samsung'
-
-# For Light
-TABLE_LAMP_OFF_COMMAND         = 0x00EC083B
-TABLE_LAMP_ON_COMMAND          = 0x00EC083C
-LIVINGROOM_LAMP_OFF_COMMAND    = 0x00EB083D
-LIVINGROOM_LAMP_ON_COMMAND     = 0x00EB083C
-WINDOW_LAMP_OFF_COMMAND        = 0x00EA083E
-WINDOW_LAMP_ON_COMMAND         = 0x00EA083F
-GROUP_ON_COMMAND               = 0xABCDEF00
-GROUP_OFF_COMMAND              = 0xABCDEF11
-
 
 ############################
 ## Define device property
@@ -132,8 +138,24 @@ devicePropertys = [
     }
 ]
 
-    
-# Fauxmo Main Handler
+
+###########################
+# REQUEST_SYNC
+###########################
+def do_requestsync():
+    request_sync_header = {'Content-Type': 'application/json'}
+    request_sync_body = {'agentUserId': AGENT_USER_ID}
+
+    logging.debug("REQUEST_SYNC : %s", json.dumps(request_sync_body))
+    resp = requests.post(requestSyncEndpoint + API_KEY, headers=request_sync_header, json=request_sync_body)
+    logging.debug("RESP : %s", resp.json())
+
+    return
+
+
+############################
+#  Fauxmo Main Handler
+############################
 class fauxmo_device_handler(object):
     """Publishes the on/off state requested,
        and the IP address of the Echo making the request.
@@ -162,50 +184,100 @@ class fauxmo_device_handler(object):
         return on_off_status
 
 
+############################
 # Google Smart Home action Main Handler
+############################
 class GetHandler(BaseHTTPRequestHandler):
 
-    def do_POST(self):
-        content_len = int(self.headers.getheader('content-length'))
-        post_body = self.rfile.read(content_len)
-        data = json.loads(post_body)
-        response_result = {}
+    def do_GET(self):
+        parsed_path = urlparse.urlparse(self.path).path
+        query = urlparse.urlparse(self.path).query
+        logging.info("GET path : %s", parsed_path)
 
-        logging.info("POST path : %s", self.path)
-        logging.info("POST data : %s", data)
-
-        # Check URL
-        if self.path != '/smarthome':
-            self.send_response(401, "invalid URL")
+        # Get Auth
+        if parsed_path == '/auth':
+            self.send_response(302)
+            self.send_header('Location', self.getAuth(query))
             self.end_headers()
-            return
+
+        return
+
+    def do_POST(self):
+        response_result = {}
+        content_len = int(self.headers.getheader('content-length'))
+        parsed_path = urlparse.urlparse(self.path).path
+        post_body = self.rfile.read(content_len)
+        logging.info("POST path : %s", parsed_path)
+
+        # Get Token
+        if parsed_path == '/token':
+            response_result = self.getToken(post_body)
+
+        # smarthome API
+        elif parsed_path == '/smarthome':
+            data = json.loads(post_body)
+            logging.info("POST data : %s", data)
+            response_result = self.do_intentParsing(data)
+
+        logging.info("POST response : %s", json.dumps(response_result))
+
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.end_headers()
+        self.wfile.write(json.dumps(response_result))
+
+        return
+
+    ###########################
+    # Authorization and Token
+    ###########################
+    def getAuth(self, query):
+        query_components = urlparse.parse_qs(query)
+        redirect_uri = query_components.get('redirect_uri')[0] + "?code=" + AUTHORIZATION_CODE + "&state=" + \
+                       query_components.get('state')[0]
+
+        return redirect_uri
+
+    def getToken(self, data):
+        data_components = urlparse.parse_qs(data)
+        grant_type = data_components.get('grant_type')[0]
+        logging.info("getToken : grant_type %s", grant_type)
+
+        # Check grant_type
+        if grant_type == 'authorization_code':
+            returnAccessToken = {
+                'token_type': 'bearer',
+                'access_token': ACCESS_TOKEN,
+                'refresh_token': ACCESS_TOKEN
+            }
+        elif grant_type == 'refresh_token':
+            returnAccessToken = {
+                'token_type': 'bearer',
+                'access_token': ACCESS_TOKEN
+            }
+
+        return returnAccessToken
+
+    # intent Parsing
+    def do_intentParsing(self, data):
+        response_result = {}
 
         # Get Input Data
         input_data = data.get('inputs')
-        if input_data == None:
-            self.send_response(401, "missing intent")
-            self.end_headers()
-            return
+        if input_data != None:
+            # Get Intent & Payload Data
+            intent_data = input_data[0]['intent']
+            # Check Intent Data
+            if intent_data == 'action.devices.SYNC':
+                response_result = self.do_sync(data['requestId'])
+            elif intent_data == 'action.devices.QUERY':
+                payload_data = input_data[0]['payload']
+                response_result = self.do_query(data['requestId'], payload_data['devices'])
+            elif intent_data == 'action.devices.EXECUTE':
+                payload_data = input_data[0]['payload']
+                response_result = self.do_execute(data['requestId'], payload_data['commands'])
 
-        # Get Intent & Payload Data
-        intent_data = input_data[0]['intent']
-
-        # Check Intent Data
-        if intent_data == 'action.devices.SYNC':
-            response_result = self.do_sync(data['requestId'])
-        elif intent_data == 'action.devices.QUERY':
-            payload_data = input_data[0]['payload']
-            response_result = self.do_query(data['requestId'], payload_data['devices'])
-        elif intent_data == 'action.devices.EXECUTE':
-            payload_data = input_data[0]['payload']
-            response_result = self.do_execute(data['requestId'], payload_data['commands'])
-
-        self.send_response(200)
-        self.end_headers()
-        self.wfile.write(json.dumps(response_result))
-        logging.info("POST response : %s", json.dumps(response_result))
-
-        return
+        return response_result
 
     # SYNC
     def do_sync(self, requestId):
@@ -234,7 +306,6 @@ class GetHandler(BaseHTTPRequestHandler):
                 'devices': respStatus
             }
         }
-
         logging.info("QUERY : %s", inDevicesInfo)
 
         for one_device_info in inDevicesInfo:
@@ -255,7 +326,6 @@ class GetHandler(BaseHTTPRequestHandler):
                 'commands': respCommands
             }
         }
-
         logging.info("EXECUTE : %s", commands)
 
         for one_command in commands:
@@ -275,22 +345,6 @@ class GetHandler(BaseHTTPRequestHandler):
         return responseBody
 
 
-# REQUEST_SYNC
-def do_requestsync():
-    request_sync_header = {'Content-Type': 'application/json'}
-    request_sync_body = {'agentUserId': AGENT_USER_ID}
-
-    logging.debug("REQUEST_SYNC : %s", json.dumps(request_sync_body))
-    resp = requests.post(requestSyncEndpoint + API_KEY, headers=request_sync_header, json=request_sync_body)
-    logging.debug("RESP : %s", resp.json())
-
-    # Trigger timer for REQUEST_SYNC
-    threading.Timer(REQUEST_SYNC_DURATION, do_requestsync).start()
-
-    return
-
-
-
 
 if __name__ == '__main__':
     from BaseHTTPServer import HTTPServer
@@ -303,9 +357,6 @@ if __name__ == '__main__':
     # Exit the server thread when the main thread terminates
     server_thread.daemon = True
     server_thread.start()
-
-    # Trigger timer for REQUEST_SYNC
-    threading.Timer(REQUEST_SYNC_DURATION, do_requestsync).start()
 
     # Startup the fauxmo server
     fauxmo.DEBUG = False
