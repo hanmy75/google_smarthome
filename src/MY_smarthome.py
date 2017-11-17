@@ -138,6 +138,17 @@ devicePropertys = [
     }
 ]
 
+############################
+## Define TV Command List
+############################
+TV_CommandList = {
+    'pause' : 'KEY_PLAYPAUSE',
+    'play': 'KEY_PLAYPAUSE',
+    'stop': 'KEY_STOP',
+    'volume up': 'KEY_VOLUMEUP',
+    'volume down': 'KEY_VOLUMEDOWN'
+}
+
 
 ###########################
 # REQUEST_SYNC
@@ -216,8 +227,12 @@ class GetHandler(BaseHTTPRequestHandler):
         # smarthome API
         elif parsed_path == '/smarthome':
             data = json.loads(post_body)
-            logging.info("POST data : %s", data)
+            logging.debug("POST data : %s", data)
             response_result = self.do_intentParsing(data)
+
+        # IFTTT
+        elif parsed_path == '/ifttt':
+            response_result = self.do_iftttParsing(post_body)
 
         logging.info("POST response : %s", json.dumps(response_result))
 
@@ -257,6 +272,32 @@ class GetHandler(BaseHTTPRequestHandler):
             }
 
         return returnAccessToken
+
+    # intent Parsing
+    def do_iftttParsing(self, data):
+        response_result = {}
+        data_components = urlparse.parse_qs(data)
+        logging.info("IFTTT data : %s", data_components)
+
+        command = data_components.get('command')[0]
+        if command == 'power':
+            # Find matched device ID
+            for one_device in devicePropertys:
+                onoff = data_components.get(str(one_device['id']))
+                if onoff != None:
+                    # Power On Off Command  : 'command=power&2=True&3=True&4=True'
+                    logging.debug("Power OnOff [%d] : %s ", one_device['id'], onoff[0])
+                    do_PowerOnOff(one_device, bool(onoff[0]=='True'))
+
+        elif command == 'player':
+                # TV Command : 'command=player&parm=play'
+                parm = data_components.get('parm')[0]
+                key_code = TV_CommandList.get(parm)
+                if key_code != None:
+                    logging.debug("TV Command : %s %s", parm, key_code)
+                    RCU_Operation(key_code)
+
+        return response_result
 
     # intent Parsing
     def do_intentParsing(self, data):
