@@ -148,3 +148,26 @@ $ crontab -e
 10 * * * * /home/pi/dynudns/dynu.sh >/dev/null 2>&1
 ------------------------------------------------------
 ```
+
+
+### SSL Certificate
+
+Install Certbot
+```
+$ sudo sed -i "$ a\deb http://ftp.debian.org/debian jessie-backports main" /etc/apt/sources.list
+$ sudo apt-get update
+$ sudo apt-get install certbot -t jessie-backports -y --force-yes
+```
+
+Get SSL Certificate
+```
+$ sudo certbot certonly
+```
+
+Renewal
+```
+$ crontab -e
+------------------------------------------------------
+0 * / 12 * * * root certbot -q renew
+------------------------------------------------------
+```
