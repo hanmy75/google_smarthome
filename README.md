@@ -38,7 +38,7 @@ $ cd ~/bluez
 $ ./configure --prefix=/usr --mandir=/usr/share/man --sysconfdir=/etc --localstatedir=/var --enable-sixaxis
 $ make
 $ sudo make install
-$ sudo rm /etc/init.d/sixad
+$ sudo service sixad stop
 $ sudo systemctl daemon-reload
 ```
 
@@ -155,6 +155,8 @@ $ crontab -e
 Install Certbot
 ```
 $ sudo sed -i "$ a\deb http://ftp.debian.org/debian jessie-backports main" /etc/apt/sources.list
+$ sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 7638D0442B90D010
+$ sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 8B48AD6246925553
 $ sudo apt-get update
 $ sudo apt-get install certbot -t jessie-backports -y --force-yes
 ```
