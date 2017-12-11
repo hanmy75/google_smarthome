@@ -54,7 +54,7 @@ Google Home Smarthome action
 
 ### Install
 ```
-$ sudo apt-get install python-dev libboost-python-dev python-pip libssl-dev libffi-dev lirc ruby1.9.1 nginx samba samba-common-bin
+$ sudo apt-get install python-dev libboost-python-dev python-pip libssl-dev libffi-dev lirc ruby1.9.1 nginx samba samba-common-bin dnsmasq
 $ sudo smbpasswd -a pi
 ```
 
@@ -171,6 +171,6 @@ Renewal
 ```
 $ crontab -e
 ------------------------------------------------------
-0 * / 12 * * * root certbot -q renew
+0 */12 * * * root certbot -q renew
 ------------------------------------------------------
 ```
