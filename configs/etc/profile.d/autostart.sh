@@ -4,7 +4,7 @@ if [ "`tty`" = "/dev/tty1" ]; then
     /home/pi/turn_off.sh
 
     # Google Home Automation & Fauxmo
-    python /home/pi/google_smarthome/MY_MY_smarthome.py &
+    python /home/pi/google_smarthome/src/MY_smarthome.py &
 
     # Launch KODI and Retro Pie
     while :
