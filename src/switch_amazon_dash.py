@@ -4,8 +4,10 @@ import logging
 import requests
 # POST with JSON
 import json
+from scapy.all import *
 
 URL = "http://localhost:4003/smarthome"
+MAC_ADDRESS = 'fc:a6:67:20:7c:99' # enter Dash Button's MAC Address here.
 
 devicePropertys = []
 lightIDs = []
@@ -102,14 +104,21 @@ def turnOnOffLight(onoff):
     # Request EXECUTE
     requests.post(URL, headers='', json=req_data)
 
+# Detect dash button
+def detect_button(pkt):
+    if pkt.haslayer(DHCP) and pkt[Ether].src == MAC_ADDRESS:
+            logging.debug("Button Press Detected")
+            lightFlag = isAnyLightOn()
+            logging.debug("Light is %d", lightFlag)
+            # Toggle Light
+            if lightFlag == 1:
+                turnOnOffLight('false')
+            else:
+                turnOnOffLight('true')
+
 
 # Main routine
 devicePropertys = getDevicePropertys()
-lightFlag = isAnyLightOn()
-logging.debug("Light is %d", lightFlag)
 
-# Trun on all lights
-turnOnOffLight('true')
-
-# Trun off all lights
-turnOnOffLight('false')
+# Loop to detect dash button
+sniff(prn=detect_button, filter="(udp and (port 67 or 68))", store=0)
