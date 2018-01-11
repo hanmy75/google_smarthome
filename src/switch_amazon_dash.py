@@ -46,7 +46,7 @@ def getDevicePropertys():
 
 # Device Status : Only for LIGHT
 def isAnyLightOn():
-    lightFlag = 0
+    lightFlag = False
     payload = {'devices': []}
     # QUERY Data format
     req_data = {
@@ -73,8 +73,8 @@ def isAnyLightOn():
         for one_id in lightIDs:
             one_status = input_data['devices'].get(str(one_id))
             logging.debug("ID(%d) : %s ", one_id, one_status)
-            if one_status['on'] == 'true':
-                lightFlag = 1
+            if one_status['on'] == True:
+                lightFlag = True
 
     return lightFlag
 
@@ -116,9 +116,9 @@ def detect_button(pkt):
             logging.debug("Light is %d", lightFlag)
             # Toggle Light
             if lightFlag == 1:
-                turnOnOffLight('false')
+                turnOnOffLight(False)
             else:
-                turnOnOffLight('true')
+                turnOnOffLight(True)
 
 
 # Main routine
