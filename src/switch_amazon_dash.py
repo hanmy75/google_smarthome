@@ -1,3 +1,4 @@
+import time
 import random
 import string
 import logging
@@ -6,11 +7,15 @@ import requests
 import json
 from scapy.all import *
 
+DEBOUNCE_SECONDS = 4
+
 URL = "http://localhost:4003/smarthome"
 MAC_ADDRESS = 'fc:a6:67:20:7c:99' # enter Dash Button's MAC Address here.
 
 devicePropertys = []
 lightIDs = []
+lastTriggerTime = 0
+
 
 # Setup logging level
 logging.basicConfig(level=logging.DEBUG)
@@ -108,10 +113,26 @@ def turnOnOffLight(onoff):
     # Request EXECUTE
     requests.post(URL, headers='', json=req_data)
 
+
+# Debounce triggering
+def debounce():
+    global lastTriggerTime
+    debounceFlag = False
+
+    if (time.time() - lastTriggerTime) < DEBOUNCE_SECONDS:
+        debounceFlag = True
+
+    lastTriggerTime = time.time()
+    return debounceFlag
+
 # Detect dash button
 def detect_button(pkt):
     if pkt.haslayer(DHCP) and pkt[Ether].src == MAC_ADDRESS:
             logging.debug("Button Press Detected")
+            if debounce():
+                logging.debug("Trigger debounced.")
+                return
+
             lightFlag = isAnyLightOn()
             logging.debug("Light is %d", lightFlag)
             # Toggle Light
