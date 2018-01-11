@@ -6,6 +6,9 @@ if [ "`tty`" = "/dev/tty1" ]; then
     # Google Home Automation & Fauxmo
     python /home/pi/google_smarthome/src/MY_smarthome.py &
 
+    sleep 4
+    sudo python /home/pi/google_smarthome/src/switch_amazon_dash.py &
+
     # Launch KODI and Retro Pie
     while :
     do
