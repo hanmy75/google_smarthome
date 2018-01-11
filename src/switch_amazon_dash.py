@@ -35,6 +35,12 @@ def getDevicePropertys():
     input_data = data.get('payload')
     if input_data != None:
         local_deviceProperty = input_data['devices']
+        # Search LIGHT type on Device Property
+        for one_device in local_deviceProperty:
+            if one_device['type'] == 'action.devices.types.LIGHT':
+                logging.debug("Find LIGHT ID : %s", one_device['id'])
+                lightIDs.append(one_device['id'])
+
     return local_deviceProperty
 
 
@@ -53,11 +59,9 @@ def isAnyLightOn():
     }
 
     # Search LIGHT type on Device Property
-    for one_device in devicePropertys:
-        if one_device['type'] == 'action.devices.types.LIGHT':
-            logging.debug("Find LIGHT ID : %s", one_device['id'])
-            lightIDs.append(one_device['id'])
-            payload['devices'].append({'id': one_device['id']})
+    for id in lightIDs:
+        logging.debug("Add LIGHT ID : %s", id)
+        payload['devices'].append({'id': id})
 
     # Request QUERY
     resp = requests.post(URL, headers='', json=req_data)
