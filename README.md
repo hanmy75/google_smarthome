@@ -54,7 +54,7 @@ Google Home Smarthome action
 
 ### Install
 ```
-$ sudo apt-get install python-dev libboost-python-dev python-pip libssl-dev libffi-dev lirc ruby1.9.1 nginx samba samba-common-bin dnsmasq
+$ sudo apt-get install python-dev libboost-python-dev python-pip libssl-dev libffi-dev lirc ruby1.9.1 nginx samba samba-common-bin dnsmasq scapy
 $ sudo smbpasswd -a pi
 ```
 
